@@ -12,8 +12,10 @@ Social Radar was created to answer one big question every content creator asks:
 Current world revolves around polarizations. Social Radar gathers comments from YouTube, analyzes them by AI, and saves results in CSV files.
 Results can be checked in the Streamlit dashboard or for a better view in Power BI.
 
+<img width="1683" height="800" alt="socialradar2" src="https://github.com/user-attachments/assets/6294f5ea-9a4c-4bea-9ac2-54e4e4b0c13f" />
+<img width="1683" height="800" alt="socialradar1" src="https://github.com/user-attachments/assets/1524fdf4-299d-4e0e-a37d-8201f3ba1982" />
+
 ## To-Do List
 - Translating non-English comments
 - Reddit comments integration
 - Automatic Power BI data refresh & import
-
