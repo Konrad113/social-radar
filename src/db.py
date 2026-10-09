@@ -29,7 +29,7 @@ def init_db():
     );
     """)
 
-        # 2. Videos dimension.
+    # 2. Videos dimension.
     con.execute("""
     CREATE TABLE IF NOT EXISTS Dim_Videos (
         video_key BIGINT PRIMARY KEY,
@@ -49,7 +49,7 @@ def init_db():
     );
     """)
     
-                # 3. Comment facts and AI analysis.
+    # 3. Comment facts and AI analysis.
     con.execute("""
     CREATE TABLE IF NOT EXISTS Fact_Comments (
         comment_key BIGINT PRIMARY KEY,
@@ -62,17 +62,17 @@ def init_db():
         reply_count BIGINT,
         is_reply BOOLEAN,
         engagement_score BIGINT,
-        camp_key BIGINT,             -- Klucz obcy do Dim_Camps
+                camp_key BIGINT,             -- Foreign key to Dim_Camps
         arousal_score DOUBLE,        -- 0.0 to 1.0
         emotion_tag VARCHAR,
         core_argument VARCHAR,
-        unresolved_question VARCHAR, -- Nierozwiązane pytanie od widzów
+        unresolved_question VARCHAR, -- Unresolved question from viewers
         FOREIGN KEY (video_key) REFERENCES Dim_Videos(video_key),
         FOREIGN KEY (camp_key) REFERENCES Dim_Camps(camp_key)
     );
     """)
 
-        # 4. Camps dimension (relacyjny układ dla _camps.csv).
+    # 4. Camps dimension (relacyjny układ dla _camps.csv).
     con.execute("""
     CREATE TABLE IF NOT EXISTS Dim_Camps (
         camp_key BIGINT PRIMARY KEY,
@@ -85,7 +85,7 @@ def init_db():
     );
     """)
 
-        # 5. Aggregated topic clusters (TOI).
+    # 5. Aggregated topic clusters (TOI).
     con.execute("""
     CREATE TABLE IF NOT EXISTS Dim_Clusters (
         cluster_id VARCHAR PRIMARY KEY,

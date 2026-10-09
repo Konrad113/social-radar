@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import re
-# Importujemy funkcje analityczne do przeliczania danych z CSV
+# Import analytical functions for processing CSV data
 from src.analytics import (
     calculate_shannon_polarization, 
     calculate_weighted_arousal, 
@@ -50,7 +50,7 @@ st.markdown("*Content Arbitrage Engine powered by AI discourse analysis*")
 
 @st.cache_data
 def load_csv_data(file_path):
-    """Wczytuje CSV z faktami (komentarze) i łączy z wymiarem wideo oraz campów po camp_key."""
+    """Loads CSV with facts (comments) and joins with video and camp dimensions by camp_key."""
     try:
         df_comms = pd.read_csv(file_path, sep=";", encoding="utf-8-sig")
         comms_mapping = {
@@ -71,7 +71,7 @@ def load_csv_data(file_path):
         }
         df_comms = df_comms.rename(columns=comms_mapping)
         
-        # Szukamy powiązanego pliku _videos.csv
+        # Look for related _videos.csv file
         videos_csv = Path(str(file_path).replace("_comments", "_videos"))
         if videos_csv.exists():
             df_vids = pd.read_csv(videos_csv, sep=";", encoding="utf-8-sig")
@@ -91,7 +91,7 @@ def load_csv_data(file_path):
             }
             df_vids = df_vids.rename(columns=vids_mapping)
             
-            # Pobieramy również plik _channels.csv i łączymy po channel_key
+            # Also fetch _channels.csv and merge by channel_key
             channels_csv = Path(str(file_path).replace("_comments", "_channels"))
             if channels_csv.exists():
                 df_ch = pd.read_csv(channels_csv, sep=";", encoding="utf-8-sig")
@@ -105,7 +105,7 @@ def load_csv_data(file_path):
             if 'video_key' in df_comms.columns and 'video_key' in df_vids.columns:
                 df_comms = df_comms.merge(df_vids, on='video_key', how='left')
 
-                # Szukamy powiązanego pliku _camps.csv i łączymy po camp_key
+                # Look for related _camps.csv file and merge by camp_key
         camps_csv = Path(str(file_path).replace("_comments", "_camps"))
         if camps_csv.exists():
             df_camps = pd.read_csv(camps_csv, sep=";", encoding="utf-8-sig")
@@ -122,7 +122,7 @@ def load_csv_data(file_path):
             if 'camp_key' in df_comms.columns and 'camp_key' in df_camps.columns:
                 df_comms = df_comms.merge(df_comms, on=['camp_key', 'video_key'], how='left') if 'camp_key' in df_comms.columns else df_comms
                 
-        # Konwersja typów numerycznych
+        # Numeric type conversion
         df_comms['like_count'] = pd.to_numeric(df_comms['like_count'], errors='coerce').fillna(0)
         df_comms['reply_count'] = pd.to_numeric(df_comms.get('reply_count', 0), errors='coerce').fillna(0)
         df_comms['arousal_score'] = pd.to_numeric(df_comms['arousal_score'], errors='coerce').fillna(0)
@@ -134,14 +134,14 @@ def load_csv_data(file_path):
         return pd.DataFrame()
 
 def extract_total_comments(coverage_text):
-    """Wyciąga całkowitą liczbę komentarzy z tekstu np. '6.6% (100/1512)'"""
+    """Extracts total comment count from text e.g. '6.6% (100/1512)'"""
     if pd.isna(coverage_text):
         return 0
     match = re.search(r'/(\d+)\)', str(coverage_text))
     return int(match.group(1)) if match else 0
 
 def extract_camp_desc(full_text, camp_id):
-    """Precyzyjnie wyciąga opis tylko dla danej litery campu, usuwając tagi."""
+    """Precise extraction of description only for a given camp letter, removing tags."""
     if pd.isna(full_text) or full_text == "":
         return "No definition available."
     
@@ -156,7 +156,7 @@ def extract_camp_desc(full_text, camp_id):
     return text
 
 def get_video_stats(df):
-    """Grupuje komentarze po filmach i liczy statystyki analityczne przy użyciu campów."""
+    """Groups comments by videos and computes analytical statistics using camps."""
     video_stats = []
     for title, group in df.groupby('title'):
         stance_series = group['camp_key'] if 'camp_key' in group.columns else group.get('camp_title', pd.Series([1]*len(group)))
@@ -190,9 +190,9 @@ def get_video_stats(df):
         })
     return pd.DataFrame(video_stats).sort_values('total_comments', ascending=False)
 
-# --- LOGIKA GŁÓWNA ---
+# --- MAIN LOGIC ---
 
-# Szukamy raportów w podkatalogu 'exports/'
+# Look for reports in the 'exports/' subdirectory
 csv_files = sorted(
     list(Path("exports").glob("discourse_*comments*.csv")),
     key=lambda x: x.stat().st_mtime,
@@ -209,7 +209,7 @@ selected_csv = st.sidebar.selectbox(
     format_func=lambda path: path.stem.replace("discourse_", "").replace("_comments", "").replace("_", " ").title()
 )
 
-# Szukamy odpowiadającego pliku wideo (_videos.csv), jeśli istnieje
+# Look for corresponding video file (_videos.csv), if it exists
 videos_csv = Path(str(selected_csv).replace("_comments", "_videos"))
 df_videos = pd.DataFrame()
 if videos_csv.exists():
@@ -226,7 +226,7 @@ if videos_csv.exists():
             'Views Per Hour (VPH)': 'views_per_hour',
             'Total Comments': 'total_comments'
         })
-        # Dołączamy channel_title z _channels.csv, jeśli istnieje
+        # Attach channel_title from _channels.csv if available
         channels_csv = Path(str(selected_csv).replace("_comments", "_channels"))
         if channels_csv.exists():
             df_ch = pd.read_csv(channels_csv, sep=";", encoding="utf-8-sig")
@@ -244,7 +244,7 @@ df_comments = load_csv_data(selected_csv)
 if not df_comments.empty:
     df_clusters = get_video_stats(df_comments)
 
-        # Dołączamy dane z wymiaru wideo (np. Views, VPH), jeśli są dostępne
+        # Attach video dimension data (e.g. Views, VPH) if available
     if not df_videos.empty and 'title' in df_videos.columns:
         df_clusters = df_clusters.merge(
             df_videos[['title', 'views', 'views_per_hour']],
@@ -291,7 +291,7 @@ if not df_comments.empty:
         # 3. Video Ranking
     st.subheader("🏆 Popular Topics (Sorted by Comment Count)")
 
-        # Wczytujemy również plik _camps.csv osobno do wyświetlania kart campów dla każdego filmu
+        # Also load _camps.csv separately to display camp cards for each video
     camps_csv_path = Path(str(selected_csv).replace("_comments", "_camps"))
     df_all_camps = pd.DataFrame()
     if camps_csv_path.exists():

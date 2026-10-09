@@ -79,7 +79,7 @@ def compute_toi_cluster_metrics(df_videos, df_comments):
         if pd.isna(of):
             of = 0.0
         
-                        # Extract the dominant thesis for each camp.
+        # Extract the dominant thesis for each camp.
         camp_a_args = v_comms[v_comms["stance"] == "A"]["core_argument"].value_counts()
         camp_b_args = v_comms[v_comms["stance"] == "B"]["core_argument"].value_counts()
         

@@ -215,8 +215,8 @@ else:
             raise RuntimeError("No YouTube creator matched the provided input.")
         channel_id = creator_items[0]["id"].get("channelId")
 
-    page_token = None
-    # Pobieramy tyle stron, ile potrzebujemy, aby zebrać co najmniej max_videos (lub do wyczerpania wyników)
+        page_token = None
+    # Fetch as many pages as needed to collect at least max_videos (or until results are exhausted)
     while len(search_res_items) < max_videos:
         batch_limit = min(50, max_videos - len(search_res_items))
         if batch_limit <= 0:
@@ -247,7 +247,7 @@ else:
         for item in search_res_items
         if re.fullmatch(r"[A-Za-z0-9_-]{11}", item.get("id", {}).get("videoId", ""))
     ]
-    # Usuwamy duplikaty zachowując kolejność
+    # Remove duplicates while preserving order
     video_ids = list(dict.fromkeys(video_ids))
 
 if not video_ids:
@@ -503,7 +503,7 @@ video_key_map = {}
 for idx, video in enumerate(selected_videos, start=1):
     video_key_map[video["id"]] = idx
 
-# 3. Zapis tabeli kanałów (zaczynając od channel_key)
+# 3. Save channels table (starting with channel_key)
 channel_export_rows = [
     [
         ch["channel_key"],
@@ -526,7 +526,7 @@ with open(output_channels_csv, "w", newline="", encoding="utf-8-sig") as output_
     ])
     writer.writerows(channel_export_rows)
 
-# 2. Zapis tabeli wymiarów (filmy z video_key, channel_key, bez channel_id i bez channel title)
+# 2. Save dimension table (videos with video_key, channel_key, without channel_id and channel title)
 video_export_rows = []
 for video in selected_videos:
     v_key = video_key_map[video["id"]]
@@ -554,7 +554,7 @@ with open(output_videos_csv, "w", newline="", encoding="utf-8-sig") as output_fi
     ])
     writer.writerows(video_export_rows)
 
-# 4. Zapis nowego pliku wymiaru _camps.csv (relacyjny / długi układ)
+# 4. Save new _camps.csv dimension file (relational / long layout)
 camps_export_rows = []
 camp_lookup = {}
 camp_row_counter = 1
@@ -576,7 +576,7 @@ for video in selected_videos:
         raw_letter = str(camp.get("camp_letter", "")).upper().replace("CAMP_", "")
         title_val = str(camp.get("camp_title", ""))
         
-        # Zapisujemy mapowanie: (video_id, raw_letter) -> globalny camp_row_counter
+        # Save mapping: (video_id, raw_letter) -> global camp_row_counter
         camp_lookup[(video["id"], raw_letter)] = camp_row_counter
 
         # Determine camp category using lookup (fallback to "General Discussion")
@@ -615,13 +615,13 @@ with open(output_camps_csv, "w", newline="", encoding="utf-8-sig") as output_fil
     ])
     writer.writerows(camps_export_rows)
 
-# 1. Zapis tabeli faktów (komentarze z comment_key na początku, video_key zaraz za comment_id, odchudzona)
+# 1. Save facts table (comments with comment_key first, video_key right after comment_id, streamlined)
 comments_export_rows = []
 for idx, row in enumerate(csv_rows, start=1):
     v_id = row[0]
     v_key = video_key_map.get(v_id, 1)
     raw_stance = str(row[13]).upper().replace("CAMP_", "")
-    # Jeśli stan to NEUTRAL lub brak dopasowania w słowniku, ustawiamy Camp Key jako None (NULL w pliku)
+    # If stance is NEUTRAL or no match in dictionary, set Camp Key as None (NULL in file)
     c_key = camp_lookup.get((v_id, raw_stance)) if raw_stance in {"A", "B", "C", "D", "E"} else None
 
     comments_export_rows.append([
@@ -635,7 +635,7 @@ for idx, row in enumerate(csv_rows, start=1):
         row[10], # Reply Count
         row[11], # Is Reply
         row[12], # Engagement Score
-        c_key if c_key is not None else "",   # Camp Key (puste pole jako NULL w CSV)
+        c_key if c_key is not None else "",   # Camp Key (empty field as NULL in CSV)
         row[14], # Arousal Score
         row[15], # Emotion
         row[16], # Core Argument
