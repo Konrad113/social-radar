@@ -93,34 +93,41 @@ elif source_mode == "3":
     if not provided_links:
         raise RuntimeError("No valid YouTube video links were provided.")
 
-niche = input("👉 Niche or topic [Albion Online]: ").strip() or "Albion Online"
-        
-print("\n📊 Select video ranking:")
-print("   [1] Most comments (default)")
-print("   [2] Most views")
-print("   [3] Highest Views Per Hour (VPH)")
-print("   [4] Mixed selection: VPH + views + comments")
-ranking_mode = input("👉 Choose 1-4 [1]: ").strip() or "1"
-if ranking_mode not in {"1", "2", "3", "4"}:
-    ranking_mode = "1"
+niche = "General"
+if source_mode != "3":
+    niche = input("👉 Niche or topic [Albion Online]: ").strip() or "Albion Online"
 
-max_videos = read_positive_integer("👉 Maximum videos to analyze", 1)
-max_comments_per_video = read_positive_integer("👉 Maximum comments per video", 100)
-max_video_age_days = read_positive_integer("👉 Maximum video age in days", 30)
-max_channel_subscribers_text = input(
-    "👉 Maximum channel subscribers [No limit]: "
-).strip()
-max_channel_subscribers = (
-    int(max_channel_subscribers_text)
-    if max_channel_subscribers_text.isdigit() and int(max_channel_subscribers_text) > 0
-    else None
-)
+if source_mode == "3":
+    video_ids = provided_links
+    max_comments_per_video = read_positive_integer("👉 Maximum comments per video", 100)
+    print(f"\n🔎 Preparing {len(video_ids)} video(s) from provided links...")
+else:
+    print("\n📊 Select video ranking:")
+    print("   [1] Most comments (default)")
+    print("   [2] Most views")
+    print("   [3] Highest Views Per Hour (VPH)")
+    print("   [4] Mixed selection: VPH + views + comments")
+    ranking_mode = input("👉 Choose 1-4 [1]: ").strip() or "1"
+    if ranking_mode not in {"1", "2", "3", "4"}:
+        ranking_mode = "1"
 
-published_after = (
-    datetime.now(timezone.utc) - timedelta(days=max_video_age_days)
-).strftime("%Y-%m-%dT%H:%M:%SZ")
+    max_videos = read_positive_integer("👉 Maximum videos to analyze", 1)
+    max_comments_per_video = read_positive_integer("👉 Maximum comments per video", 100)
+    max_video_age_days = read_positive_integer("👉 Maximum video age in days", 30)
+    max_channel_subscribers_text = input(
+        "👉 Maximum channel subscribers [No limit]: "
+    ).strip()
+    max_channel_subscribers = (
+        int(max_channel_subscribers_text)
+        if max_channel_subscribers_text.isdigit() and int(max_channel_subscribers_text) > 0
+        else None
+    )
 
-print(f"\n🔎 Preparing videos for '{niche}' from the last {max_video_age_days} days...")
+    published_after = (
+        datetime.now(timezone.utc) - timedelta(days=max_video_age_days)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    print(f"\n🔎 Preparing videos for '{niche}' from the last {max_video_age_days} days...")
 
 
 # Fetch top-level comments and included replies.
@@ -196,9 +203,7 @@ selected_videos = []
 
 # === 3. YOUTUBE FETCHING ===
 search_res_items = []
-if source_mode == "3":
-    video_ids = provided_links[:max_videos]
-else:
+if source_mode != "3":
     channel_id = None
     if source_mode == "2":
         creator_search = execute_with_retry(
@@ -215,7 +220,7 @@ else:
             raise RuntimeError("No YouTube creator matched the provided input.")
         channel_id = creator_items[0]["id"].get("channelId")
 
-        page_token = None
+    page_token = None
     # Fetch as many pages as needed to collect at least max_videos (or until results are exhausted)
     while len(search_res_items) < max_videos:
         batch_limit = min(50, max_videos - len(search_res_items))
@@ -300,7 +305,7 @@ if video_ids:
             "YouTube channel details"
         )
         channel_info_map = {}
-        for item in channel_response.get("items", []):
+        for item in channel_response.get("itemebnie ss", []):
             ch_id = item["id"]
             ch_stats = item.get("statistics", {})
             ch_snippet = item.get("snippet", {})
@@ -312,13 +317,7 @@ if video_ids:
                 "country": ch_snippet.get("country", "")
             }
 
-        subscriber_counts = {ch_id: info["subscriber_count"] for ch_id, info in channel_info_map.items()}
-
-        if max_channel_subscribers is not None:
-            videos = [
-                video for video in videos
-                if subscriber_counts.get(video["channel_id"], 0) <= max_channel_subscribers
-            ]
+            
             
         now_dt = datetime.now(timezone.utc)
         for video in videos:
@@ -347,57 +346,61 @@ if video_ids:
                 video["views"] / subscribers if subscribers > 0 else 0.0
             )
 
-    videos = [video for video in videos if video["comments_count"] > 0]
-    ranking_keys = {
-        "1": lambda video: video["comments_count"],
-        "2": lambda video: video["views"],
-        "3": lambda video: video["views_per_hour"],
-    }
-    if ranking_mode != "4":
-        videos.sort(key=ranking_keys[ranking_mode], reverse=True)
-
-    if ranking_mode == "4":
-        by_vph = sorted(videos, key=lambda video: video["views_per_hour"], reverse=True)
-        by_views = sorted(videos, key=lambda video: video["views"], reverse=True)
-        by_comments = sorted(videos, key=lambda video: video["comments_count"], reverse=True)
-
-        vph_slots = max_videos // 3
-        view_slots = max_videos // 3
-        comment_slots = max_videos - vph_slots - view_slots
-
-        for ranked_videos, slot_count in (
-            (by_vph, vph_slots),
-            (by_views, view_slots),
-            (by_comments, comment_slots),
-        ):
-            if slot_count == 0:
-                continue
-            selected_for_criterion = 0
-            for video in ranked_videos:
-                if video["id"] not in {item["id"] for item in selected_videos}:
-                    selected_videos.append(video)
-                    selected_for_criterion += 1
-                    if selected_for_criterion >= slot_count:
-                        break
-                if len(selected_videos) >= max_videos:
-                    break
-
-        if len(selected_videos) < max_videos:
-            for video in videos:
-                if video["id"] not in {item["id"] for item in selected_videos}:
-                    selected_videos.append(video)
-                if len(selected_videos) >= max_videos:
-                    break
+        videos = [video for video in videos if video["comments_count"] > 0]
+    if source_mode == "3":
+        selected_videos = videos
+        print(f"\n🎯 Selected {len(selected_videos)} YouTube video(s) from provided links:")
     else:
-        selected_videos = videos[:max_videos]
+        ranking_keys = {
+            "1": lambda video: video["comments_count"],
+            "2": lambda video: video["views"],
+            "3": lambda video: video["views_per_hour"],
+        }
+        if ranking_mode != "4":
+            videos.sort(key=ranking_keys[ranking_mode], reverse=True)
 
-    ranking_labels = {
-        "1": "the most comments",
-        "2": "the most views",
-        "3": "the highest Views Per Hour (VPH)",
-        "4": "the mixed selection",
-    }
-    print(f"\n🎯 Selected {len(selected_videos)} YouTube video(s) ranked by {ranking_labels[ranking_mode]}:")
+        if ranking_mode == "4":
+            by_vph = sorted(videos, key=lambda video: video["views_per_hour"], reverse=True)
+            by_views = sorted(videos, key=lambda video: video["views"], reverse=True)
+            by_comments = sorted(videos, key=lambda video: video["comments_count"], reverse=True)
+
+            vph_slots = max_videos // 3
+            view_slots = max_videos // 3
+            comment_slots = max_videos - vph_slots - view_slots
+
+            for ranked_videos, slot_count in (
+                (by_vph, vph_slots),
+                (by_views, view_slots),
+                (by_comments, comment_slots),
+            ):
+                if slot_count == 0:
+                    continue
+                selected_for_criterion = 0
+                for video in ranked_videos:
+                    if video["id"] not in {item["id"] for item in selected_videos}:
+                        selected_videos.append(video)
+                        selected_for_criterion += 1
+                        if selected_for_criterion >= slot_count:
+                            break
+                    if len(selected_videos) >= max_videos:
+                        break
+
+            if len(selected_videos) < max_videos:
+                for video in videos:
+                    if video["id"] not in {item["id"] for item in selected_videos}:
+                        selected_videos.append(video)
+                    if len(selected_videos) >= max_videos:
+                        break
+        else:
+            selected_videos = videos[:max_videos]
+
+        ranking_labels = {
+            "1": "the most comments",
+            "2": "the most views",
+            "3": "the highest Views Per Hour (VPH)",
+            "4": "the mixed selection",
+        }
+        print(f"\n🎯 Selected {len(selected_videos)} YouTube video(s) ranked by {ranking_labels[ranking_mode]}:")
 
     for video in selected_videos:
         print(f"\n🎬 Video: {video['title']}")
